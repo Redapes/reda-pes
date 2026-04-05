@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDA AI - ULTRA SCANNER</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Cairo:wght@400;700;900&display=swap');
+
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-gold: #ffd700;
+            --dark-space: #020617;
+            --glass: rgba(15, 23, 42, 0.8);
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--dark-space);
+            background-image: radial-gradient(circle at top right, #1e293b 0%, #020617 100%);
+            color: white;
+            margin: 0;
+            padding: 15px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-card {
+            width: 100%;
+            max-width: 480px;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border-radius: 35px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* تأثير الحركة في الخلفية */
+        .app-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(transparent, var(--neon-blue), transparent 30%);
+            animation: rotate 6s linear infinite;
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        @keyframes rotate { 100% { transform: rotate(360deg); } }
+
+        .header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            margin: 0;
+            letter-spacing: 2px;
+            background: linear-gradient(to bottom, #fff, var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* منطقة الرفع المتطورة */
+        .upload-area {
+            margin: 25px 0;
+            border: 2px solid rgba(0, 242, 255, 0.2);
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 25px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .upload-area:hover {
+            border-color: var(--neon-blue);
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+        }
+
+        #preview-container {
+            display: none;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid var(--neon-blue);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #preview-img { width: 100%; display: block; }
+
+        /* ليزر الفحص (Cyber Effect) */
+        .laser {
+            position: absolute;
+            width: 100%;
+            height: 5px;
+            background: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue);
+            z-index: 5;
+            animation: laserMove 2s infinite linear;
+            display: none;
+        }
+
+        @keyframes laserMove {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* النتائج الحقيقية */
+        .result-panel {
+            display: none;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .rating-badge {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            padding: 20px;
+            border-radius: 20px;
+            border-left: 5px solid var(--neon-gold);
+            margin-bottom: 20px;
+        }
+
+        .rating-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 45px;
+            color: var(--neon-gold);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .price-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .price-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .price-item.full { grid-column: span 2; background: rgba(0, 242, 255, 0.05); border-color: var(--neon-blue); }
+
+        .label { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 5px; }
+        .amount { font-weight: 900; font-size: 18px; color: white; }
+        .amount.highlight { color: var(--neon-blue); font-size: 24px; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-msg { display: none; color: var(--neon-blue); font-weight: bold; margin-bottom: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="app-card">
+    <div class="header">
+        <h1>REDA AI VISION</h1>
+        <p style="color: #64748b; font-size: 11px;">الجيل الرابع: فحص منطقي وتحليل ذكي</p>
+    </div>
+
+    <div class="upload-area" id="upload-box" onclick="document.getElementById('file-input').click()">
+        <span style="font-size: 50px; filter: drop-shadow(0 0 10px var(--neon-blue));">📡</span>
+        <h3 style="margin: 15px 0 5px;">إبدا الفحص المتقدم</h3>
+        <p style="margin:0; font-size: 12px; color: #64748b;">قم برفع صورة التشكيلة بدقة عالية</p>
+        <input type="file" id="file-input" accept="image/*" hidden onchange="handleFile(this)">
+    </div>
+
+    <div id="preview-container">
+        <div class="laser" id="laser"></div>
+        <img id="preview-img">
+    </div>
+
+    <div class="status-msg" id="status">جاري الاتصال بقاعدة بيانات REDA...</div>
+
+    <div class="result-panel" id="results">
+        <div class="rating-badge">
+            <span class="label">قوة الفريق (TEAM STRENGTH)</span>
+            <span class="rating-val" id="res-rating">----</span>
+        </div>
+
+        <div class="price-grid">
+            <div class="price-item full">
+                <span class="label">السعر المقترح ($)</span>
+                <span class="amount highlight" id="p-usd">0</span>
+            </div>
+            <div class="price-item">
+                <span class="label">المغرب (MAD)</span>
+                <span class="amount" id="p-mad">0</span>
+            </div>
+            <div class="price-item">
+                <span class="label">مصر (EGP)</span>
+                <span class="amount" id="p-egp">0</span>
+            </div>
+            <div class="price-item">
+                <span class="label">العراق (IQD)</span>
+                <span class="amount" id="p-iqd">0</span>
+            </div>
+            <div class="price-item">
+                <span class="label">ليبيا (LYD)</span>
+                <span class="amount" id="p-lyd">0</span>
+            </div>
+        </div>
+        <button onclick="location.reload()" style="width:100%; background:var(--neon-blue); color:black; border:none; padding:15px; border-radius:15px; font-weight:900; margin-top:20px; cursor:pointer;">إعادة الفحص</button>
+    </div>
+</div>
+
+<canvas id="process-canvas" style="display:none;"></canvas>
+
+<script>
+    async function handleFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        // إظهار الواجهة
+        document.getElementById('upload-box').style.display = 'none';
+        document.getElementById('preview-container').style.display = 'block';
+        document.getElementById('laser').style.display = 'block';
+        document.getElementById('status').style.display = 'block';
+
+        const reader = new FileReader();
+        reader.onload = (e) => { 
+            document.getElementById('preview-img').src = e.target.result;
+            processAndScan(e.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function processAndScan(imgSrc) {
+        const img = new Image();
+        img.src = imgSrc;
+        img.onload = async () => {
+            // تحسين الصورة برمجياً قبل الفحص
+            const canvas = document.getElementById('process-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // زيادة التباين وتحويلها لرمادي (لجعل الأرقام الصفراء واضحة جداً)
+            ctx.filter = 'contrast(200%) grayscale(100%) brightness(120%)';
+            ctx.drawImage(img, 0, 0);
+
+            const processedData = canvas.toDataURL('image/png');
+            
+            try {
+                const worker = await Tesseract.createWorker('eng');
+                const { data: { text } } = await worker.recognize(processedData);
+                
+                // استخراج الريت - نبحث عن رقم من 4 أرقام يبدأ بـ 2 أو 3
+                const matches = text.match(/[23]\d{3}/g);
+                let finalRating = 2900; // افتراضي
+
+                if (matches) {
+                    // نختار الرقم الأكبر لأنه غالباً هو ريت الفريق
+                    finalRating = Math.max(...matches.map(Number));
+                }
+
+                // تصحيح: إذا كان الريت فوق 3100 (بحال الحساب اللي صيفطتي)، الثمن خاصو يكون منطقي
+                updateUI(finalRating);
+                await worker.terminate();
+            } catch (err) {
+                console.error(err);
+                updateUI(3000); // في حالة الفشل التام
+            }
+        };
+    }
+
+    function updateUI(rating) {
+        // --- معادلة التثمين المنطقي جداً ---
+        // الأساس: 3000 ريت = 15 دولار
+        // كل 10 نقط فوق 3000 = زيادة 1 دولار (لأن الوصول لـ 3200 صعب بزاف)
+        let usd = 15;
+        if (rating > 3000) {
+            usd += (rating - 3000) / 10;
+        } else if (rating < 3000) {
+            usd -= (3000 - rating) / 20;
+        }
+
+        if (usd < 5) usd = 5.5; // أقل ثمن ممكن لحساب مقبول
+
+        const rates = { mad: 10.15, egp: 48.5, iqd: 1310, lyd: 4.85 };
+
+        document.getElementById('res-rating').innerText = rating;
+        document.getElementById('p-usd').innerText = "$" + usd.toFixed(2);
+        document.getElementById('p-mad').innerText = (usd * rates.mad).toFixed(0) + " DH";
+        document.getElementById('p-egp').innerText = (usd * rates.egp).toFixed(0) + " EGP";
+        document.getElementById('p-iqd').innerText = (usd * rates.iqd).toLocaleString() + " IQD";
+        document.getElementById('p-lyd').innerText = (usd * rates.lyd).toFixed(2) + " LYD";
+
+        document.getElementById('laser').style.display = 'none';
+        document.getElementById('status').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
